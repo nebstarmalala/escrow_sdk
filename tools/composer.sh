@@ -19,6 +19,6 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 MSYS_NO_PATHCONV=1 exec docker run --rm \
-  -v "$(cd "$pkg" && pwd -W 2>/dev/null || pwd):/app" \
-  -w /app \
+  -v "$(cd "$root" && pwd -W 2>/dev/null || pwd):/repo" \
+  -w /repo/packages/php \
   composer:2 "$@"

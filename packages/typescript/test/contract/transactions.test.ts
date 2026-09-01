@@ -153,6 +153,19 @@ describe('transaction actions', () => {
     expect(JSON.parse(stub.requests[0]!.body)).toEqual({});
   });
 
+  it('wraps a refund rather than mixing replayed into the transaction', async () => {
+    stub.script({ status: 200, headers: { 'Idempotent-Replay': 'true' }, body: TXN });
+
+    const result = await escrow.transactions.refund(TXN.id);
+
+    // A stray boolean sitting inside a transaction object is the kind of thing
+    // that ends up serialised into a merchant's database by accident. The PHP
+    // SDK returns this same shape.
+    expect(result.transaction.id).toBe(TXN.id);
+    expect(result.replayed).toBe(true);
+    expect('replayed' in result.transaction).toBe(false);
+  });
+
   it('escapes an id rather than splicing it into the path', async () => {
     stub.script({ status: 404, body: { error: { code: 'NOT_FOUND', message: 'no' } } });
 

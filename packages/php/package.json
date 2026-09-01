@@ -1,0 +1,13 @@
+{
+  "name": "@aminitrust/escrow-sdk-php-codegen",
+  "private": true,
+  "description": "Toolchain-only. The PHP package's type generator is a Node script; this declares its dependency rather than borrowing one from a sibling's node_modules, where a transitive dep can vanish on any update. Nothing here is published, and nothing in src/ requires Node at runtime.",
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate-types.mjs",
+    "generate:check": "node scripts/check-generated.mjs"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

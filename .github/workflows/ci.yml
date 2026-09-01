@@ -22,13 +22,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: packages/typescript/package-lock.json
       - run: npm ci
         working-directory: packages/typescript
       - run: npm run spec:check
         working-directory: packages/typescript
       - run: npm run generate:check
         working-directory: packages/typescript
+      # The PHP shapes come from the same spec through a different generator,
+      # so they can drift independently of the TypeScript ones.
+      - run: npm ci
+        working-directory: packages/php
+      - run: npm run generate:check
+        working-directory: packages/php
 
   typescript:
     name: typescript (node ${{ matrix.node }})
@@ -78,5 +83,7 @@ jobs:
       # One PHP version is enough for static analysis; running it four times
       # tells you the same thing four times.
       - if: matrix.php == '8.1'
-        run: vendor/bin/phpstan analyse --no-progress
+        # The default 128M is not enough once the generated array shapes are
+        # in scope; PHPStan crashes its worker rather than reporting a limit.
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
         working-directory: packages/php

@@ -23,9 +23,14 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-# MSYS_NO_PATHCONV stops Git Bash on Windows rewriting /app into a Windows path
-# before docker ever sees it.
+# The REPO ROOT is mounted, not just the package. The test suite reads the
+# cross-language fixtures from shared/fixtures, which sits above the package;
+# mounting only packages/php puts them outside the container, and the failure
+# then reads as a missing file rather than a missing mount.
+#
+# MSYS_NO_PATHCONV stops Git Bash on Windows rewriting the container path into a
+# Windows one before docker ever sees it.
 MSYS_NO_PATHCONV=1 exec docker run --rm \
-  -v "$(cd "$pkg" && pwd -W 2>/dev/null || pwd):/app" \
-  -w /app \
+  -v "$(cd "$root" && pwd -W 2>/dev/null || pwd):/repo" \
+  -w /repo/packages/php \
   php:8.1-cli php "$@"

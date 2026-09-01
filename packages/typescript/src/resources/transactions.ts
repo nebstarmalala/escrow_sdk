@@ -37,6 +37,19 @@ export interface ListTransactionParams extends ListParams {
  */
 export type CreateResult = CreateTransactionResult & { replayed: boolean };
 
+/**
+ * A refund wraps the transaction rather than carrying `replayed` among its own
+ * fields.
+ *
+ * A stray boolean sitting inside a transaction object is the kind of thing that
+ * ends up serialised into a merchant's database by accident. The PHP SDK
+ * returns the same shape, so one document describes both.
+ */
+export interface RefundResult {
+  transaction: Transaction;
+  replayed: boolean;
+}
+
 export class Transactions {
   constructor(private readonly http: HttpClient) {}
 
@@ -132,7 +145,7 @@ export class Transactions {
     id: string,
     params: RefundParams = {},
     options: WriteOptions = {},
-  ): Promise<Transaction & { replayed: boolean }> {
+  ): Promise<RefundResult> {
     const response = await this.http.request<Transaction>({
       method: 'POST',
       path: `/partner/v1/transactions/${encodeURIComponent(id)}/refund`,
@@ -141,7 +154,7 @@ export class Transactions {
       requiresIdempotencyKey: true,
       signal: options.signal,
     });
-    return { ...response.data, replayed: response.replayed };
+    return { transaction: response.data, replayed: response.replayed };
   }
 
   private async action(

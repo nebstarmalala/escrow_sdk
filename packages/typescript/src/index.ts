@@ -34,7 +34,12 @@ export type { ListParams, Page } from './pagination.js';
 export { verify, signPayload, WebhookSignatureError } from './webhooks.js';
 export type { VerifyOptions } from './webhooks.js';
 
-export type { CreateResult, ListTransactionParams, WriteOptions } from './resources/transactions.js';
+export type {
+  CreateResult,
+  ListTransactionParams,
+  RefundResult,
+  WriteOptions,
+} from './resources/transactions.js';
 export type { ListDisputeParams } from './resources/disputes.js';
 export type { ListDeliveryParams } from './resources/webhooks.js';
 
