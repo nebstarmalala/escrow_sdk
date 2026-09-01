@@ -1,0 +1,204 @@
+{
+  "$schema_version": 1,
+  "$description": "One error response per code the Partner API can return. Both SDKs map every case to the same `error_class` and make the same `retryable` decision, so a merchant's `catch` block behaves identically in either language.",
+  "$notes": {
+    "error_class": "A language-neutral name. TypeScript exports it as a class; PHP as a class in Aminitrust\\Escrow\\Errors. Adding a code without adding a mapping must fail a test, not fall through to a generic error.",
+    "retryable": "Whether the SDK's own retry loop may repeat the request. This is deliberately narrow: only 429, 5xx and transport failures. See the per-case reasoning.",
+    "message": "Never switch on this. It is written for humans and may be reworded in any release."
+  },
+  "cases": [
+    {
+      "name": "validation_error",
+      "http_status": 422,
+      "body": {
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "amount_minor must be a multiple of 100",
+          "details": { "field": "amount_minor" }
+        }
+      },
+      "error_class": "ValidationError",
+      "retryable": false,
+      "why": "Deterministic. The same request will fail the same way forever."
+    },
+    {
+      "name": "unknown_request_property",
+      "http_status": 422,
+      "body": {
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "unknown field \"buyer_name\""
+        }
+      },
+      "error_class": "ValidationError",
+      "retryable": false,
+      "why": "The API rejects unrecognised properties rather than ignoring them. This is what a client running ahead of the server looks like - deploy the backend first."
+    },
+    {
+      "name": "unprocessable",
+      "http_status": 422,
+      "body": {
+        "error": {
+          "code": "UNPROCESSABLE",
+          "message": "this transaction cannot be shipped before it is funded"
+        }
+      },
+      "error_class": "ValidationError",
+      "retryable": false
+    },
+    {
+      "name": "unauthorized",
+      "http_status": 401,
+      "body": {
+        "error": {
+          "code": "UNAUTHORIZED",
+          "message": "invalid API key"
+        }
+      },
+      "error_class": "AuthenticationError",
+      "retryable": false,
+      "why": "Missing, malformed, unknown, expired and wrong-mode keys all return this identical body on purpose, so the response cannot be used to probe for valid keys. The SDK must not try to infer which it was."
+    },
+    {
+      "name": "forbidden_suspended",
+      "http_status": 403,
+      "body": {
+        "error": {
+          "code": "FORBIDDEN",
+          "message": "this partner account is suspended"
+        }
+      },
+      "error_class": "PermissionError",
+      "retryable": false
+    },
+    {
+      "name": "insufficient_scope",
+      "http_status": 403,
+      "body": {
+        "error": {
+          "code": "INSUFFICIENT_SCOPE",
+          "message": "this key lacks the transactions:write scope"
+        }
+      },
+      "error_class": "PermissionError",
+      "retryable": false,
+      "why": "A distinct code from FORBIDDEN because the fixes differ: this one is solved by issuing a key with more scopes, the other is not solved by anything the merchant can do."
+    },
+    {
+      "name": "not_found",
+      "http_status": 404,
+      "body": {
+        "error": {
+          "code": "NOT_FOUND",
+          "message": "transaction not found"
+        }
+      },
+      "error_class": "NotFoundError",
+      "retryable": false,
+      "why": "Also returned for an object belonging to another partner, or to the other mode. A live key asking about a test transaction gets 404, not 403, so the response cannot confirm an id exists."
+    },
+    {
+      "name": "conflict_in_flight",
+      "http_status": 409,
+      "body": {
+        "error": {
+          "code": "CONFLICT",
+          "message": "a request with this idempotency key is still in progress"
+        }
+      },
+      "error_class": "ConflictError",
+      "retryable": false,
+      "why": "Safe to repeat after a wait, but the SDK does not do it automatically. A plain CONFLICT also covers a duplicate partner_reference, and the two are distinguishable only by message - which nothing may switch on. Auto-retrying would quietly paper over a duplicate-order bug, so this is handed to the caller."
+    },
+    {
+      "name": "idempotency_conflict",
+      "http_status": 409,
+      "body": {
+        "error": {
+          "code": "IDEMPOTENCY_CONFLICT",
+          "message": "this Idempotency-Key was used for a different request"
+        }
+      },
+      "error_class": "ConflictError",
+      "retryable": false,
+      "why": "Retrying can only fail again: the key is bound to a different body. The fix is a new key, which means the caller reused one for two logical requests."
+    },
+    {
+      "name": "invalid_state_transition",
+      "http_status": 409,
+      "body": {
+        "error": {
+          "code": "INVALID_STATE_TRANSITION",
+          "message": "a released transaction cannot be refunded"
+        }
+      },
+      "error_class": "ConflictError",
+      "retryable": false
+    },
+    {
+      "name": "rate_limited",
+      "http_status": 429,
+      "headers": {
+        "Retry-After": "3",
+        "RateLimit-Limit": "120",
+        "RateLimit-Remaining": "0",
+        "RateLimit-Reset": "3"
+      },
+      "body": {
+        "error": {
+          "code": "RATE_LIMITED",
+          "message": "rate limit exceeded"
+        }
+      },
+      "error_class": "RateLimitError",
+      "retryable": true,
+      "retry_after_seconds": 3,
+      "why": "The only 4xx the SDK retries. Retry-After is authoritative when present; the backoff schedule is the fallback, not an override."
+    },
+    {
+      "name": "insufficient_funds",
+      "http_status": 422,
+      "body": {
+        "error": {
+          "code": "INSUFFICIENT_FUNDS",
+          "message": "insufficient balance to cover this refund"
+        }
+      },
+      "error_class": "InsufficientFundsError",
+      "retryable": false
+    },
+    {
+      "name": "service_unavailable",
+      "http_status": 503,
+      "body": {
+        "error": {
+          "code": "SERVICE_UNAVAILABLE",
+          "message": "the payment provider is not responding"
+        }
+      },
+      "error_class": "ApiError",
+      "retryable": true
+    },
+    {
+      "name": "internal",
+      "http_status": 500,
+      "body": {
+        "error": {
+          "code": "INTERNAL",
+          "message": "internal error"
+        }
+      },
+      "error_class": "ApiError",
+      "retryable": true,
+      "why": "Retried with the same Idempotency-Key, which is what makes repeating a money-moving request safe. A 5xx also deletes the server's idempotency record, so the retry genuinely re-executes rather than replaying a failure."
+    },
+    {
+      "name": "unparseable_body",
+      "http_status": 502,
+      "raw_body": "<html><head><title>502 Bad Gateway</title></head></html>",
+      "error_class": "ApiError",
+      "retryable": true,
+      "why": "A proxy or load balancer answering instead of the API. There is no error envelope to read, and an SDK that assumes one throws a JSON parse error that tells the merchant nothing about what happened."
+    }
+  ]
+}

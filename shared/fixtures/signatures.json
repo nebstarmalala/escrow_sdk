@@ -1,0 +1,220 @@
+{
+  "$schema_version": 1,
+  "$description": "Cross-language vectors for the Escrow webhook signature scheme. Computed independently in Python, not captured from any implementation under test. The Go backend, the TypeScript SDK and the PHP SDK all run this file.",
+  "algorithm": {
+    "mac": "HMAC-SHA256",
+    "signed_material": "<timestamp>.<raw_body>",
+    "encoding": "lowercase hex",
+    "header_format": "t=<unix_seconds>,v1=<hex>[,v1=<hex>...]",
+    "body_encoding": "UTF-8 bytes of the raw response body, never a re-serialised object",
+    "default_tolerance_seconds": 300
+  },
+  "sign": [
+    {
+      "name": "canonical_single_secret",
+      "why": "The published anchor. If this value changes, every partner's verification breaks.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret"
+      ],
+      "timestamp": 1755820800,
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "expected_header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2"
+    },
+    {
+      "name": "rotation_emits_two_signatures",
+      "why": "During a secret rotation both secrets sign, so a receiver holding either one still verifies.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret",
+        "whsec_oldsecretoldsecretoldsecretoldsecret1"
+      ],
+      "timestamp": 1755820800,
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "expected_header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2,v1=6996a77bc7c0b65d9d5b7d25618307a80e488814d588fcb851a53029a10e7a2a"
+    },
+    {
+      "name": "empty_secret_is_skipped",
+      "why": "An absent previous secret is an empty string, not a signature over an empty key.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret",
+        ""
+      ],
+      "timestamp": 1755820800,
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "expected_header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2"
+    },
+    {
+      "name": "empty_body",
+      "why": "Degenerate but legal. Pins that the signed material is still '<t>.' and not just '<t>'.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret"
+      ],
+      "timestamp": 1755820800,
+      "body": "",
+      "expected_header": "t=1755820800,v1=969e70c814f9ae2b5c3697ce66aad4e6d3e22aac02ced358bf64b6d0fb9cda20"
+    },
+    {
+      "name": "utf8_body",
+      "why": "The MAC is over UTF-8 bytes. JavaScript strings are UTF-16 and PHP strings are bytes, so this is where a naive implementation diverges - and it diverges only for merchants whose product titles are not ASCII.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret"
+      ],
+      "timestamp": 1755820800,
+      "body": "{\"id\":\"evt_2\",\"title\":\"Café ☕ naïve\"}",
+      "expected_header": "t=1755820800,v1=c8d8139c1f44008f796f001f09e883605c9a594bc3b475bf7cfb54e8d2d84363"
+    },
+    {
+      "name": "body_containing_dots_and_newlines",
+      "why": "The '.' between timestamp and body is a separator, not a delimiter to split on.",
+      "secrets": [
+        "whsec_testsecrettestsecrettestsecrettestsecret"
+      ],
+      "timestamp": 1755820800,
+      "body": "{\"amount\":\"1.2\",\"note\":\"line\nbreak\"}",
+      "expected_header": "t=1755820800,v1=b4cf521b45f2ecfd736c880d7b05fc001663688cf440fcced81b826d4c748b1e"
+    }
+  ],
+  "verify": [
+    {
+      "name": "accepts_a_genuine_signature",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": true
+    },
+    {
+      "name": "rejects_a_tampered_body",
+      "why": "The whole purpose. One byte changed anywhere in the payload.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.released\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_the_wrong_secret",
+      "secret": "whsec_wrongsecretwrongsecretwrongsecretwrong",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_stale_timestamp",
+      "why": "A captured request replayed later. The timestamp is inside the MAC precisely so this is detectable.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755821200,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_future_timestamp",
+      "why": "A clock far ahead is as suspect as one far behind, and only checking one direction is a common omission.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820400,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "accepts_exactly_at_the_tolerance_boundary",
+      "why": "Pins the comparison as inclusive, so the three implementations cannot differ by one second.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755821100,
+      "tolerance_seconds": 300,
+      "expected": true
+    },
+    {
+      "name": "accepts_rotation_header_with_the_new_secret",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2,v1=6996a77bc7c0b65d9d5b7d25618307a80e488814d588fcb851a53029a10e7a2a",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": true
+    },
+    {
+      "name": "accepts_rotation_header_with_the_old_secret",
+      "why": "The grace window: a merchant who has not yet redeployed still verifies.",
+      "secret": "whsec_oldsecretoldsecretoldsecretoldsecret1",
+      "header": "t=1755820800,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2,v1=6996a77bc7c0b65d9d5b7d25618307a80e488814d588fcb851a53029a10e7a2a",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": true
+    },
+    {
+      "name": "accepts_a_header_with_whitespace_after_commas",
+      "why": "Some proxies reformat header values. Trimming is required, not optional.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800, v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": true
+    },
+    {
+      "name": "rejects_a_header_with_no_timestamp",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_header_with_no_signature",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_non_numeric_timestamp",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=not-a-number,v1=52d5dae6d86f5f784e2ffb054eae47f50b2a325339a37fdbbb469a8cae876bf2",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_an_empty_header",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_garbage_header",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "not a signature at all",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    },
+    {
+      "name": "rejects_a_signature_of_the_right_shape_but_wrong_value",
+      "why": "A hex string of the correct length must not shortcut past the compare.",
+      "secret": "whsec_testsecrettestsecrettestsecrettestsecret",
+      "header": "t=1755820800,v1=0000000000000000000000000000000000000000000000000000000000000000",
+      "body": "{\"id\":\"evt_1\",\"type\":\"transaction.funded\"}",
+      "now": 1755820805,
+      "tolerance_seconds": 300,
+      "expected": false
+    }
+  ]
+}

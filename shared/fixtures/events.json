@@ -1,0 +1,656 @@
+{
+  "$schema_version": 1,
+  "$description": "One sample webhook delivery body per public event type, plus a test-mode delivery. These are the exact shapes an endpoint receives. The backend decodes every one into its real DTOs with unknown fields disallowed, so a field invented here breaks the backend build.",
+  "events": [
+    {
+      "id": "evt_0199a3f3-0001-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.created",
+      "created": 1756719162,
+      "livemode": true,
+      "sequence": 1,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "pending_acceptance",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": null,
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:12:41Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0002-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.accepted",
+      "created": 1756719163,
+      "livemode": true,
+      "sequence": 2,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "accepted",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": null,
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:13:02Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0003-7000-8000-000000000000",
+      "object": "event",
+      "type": "payment.succeeded",
+      "created": 1756719164,
+      "livemode": true,
+      "sequence": 3,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "funded",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:15:04Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0004-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.funded",
+      "created": 1756719165,
+      "livemode": true,
+      "sequence": 4,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "funded",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:15:04Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0005-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.shipped",
+      "created": 1756719166,
+      "livemode": true,
+      "sequence": 5,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "item_sent",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-02T08:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0006-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.inspection_started",
+      "created": 1756719167,
+      "livemode": true,
+      "sequence": 6,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "inspection",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": "2026-09-02T14:30:00Z",
+          "release_after": "2026-09-04T14:30:00Z",
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-02T14:30:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0007-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.released",
+      "created": 1756719168,
+      "livemode": true,
+      "sequence": 7,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "released",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": "2026-09-02T14:30:00Z",
+          "release_after": "2026-09-04T14:30:00Z",
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": "2026-09-03T07:45:12Z",
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-03T07:45:12Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0008-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.completed",
+      "created": 1756719169,
+      "livemode": true,
+      "sequence": 8,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "completed",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": "2026-09-02T14:30:00Z",
+          "release_after": "2026-09-04T14:30:00Z",
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": "2026-09-03T07:45:12Z",
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-03T07:45:30Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0009-7000-8000-000000000000",
+      "object": "event",
+      "type": "payment.failed",
+      "created": 1756719170,
+      "livemode": true,
+      "sequence": 3,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "accepted",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": null,
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:14:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-000a-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.cancelled",
+      "created": 1756719171,
+      "livemode": true,
+      "sequence": 3,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "cancelled",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": null,
+          "released_at": null,
+          "cancel_reason": "out of stock",
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:20:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-000b-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.expired",
+      "created": 1756719172,
+      "livemode": true,
+      "sequence": 3,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "expired",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": null,
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-04T09:12:41Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-000c-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.refunded",
+      "created": 1756719173,
+      "livemode": true,
+      "sequence": 6,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "refunded",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": true,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-02T16:10:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-000d-7000-8000-000000000000",
+      "object": "event",
+      "type": "dispute.opened",
+      "created": 1756719174,
+      "livemode": true,
+      "sequence": 7,
+      "data": {
+        "object": {
+          "id": "0199a400-1111-7abc-8def-0123456789ab",
+          "object": "dispute",
+          "transaction_id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "transaction_reference": "ESC-8H2K4M",
+          "status": "OPEN",
+          "reason": "ITEM_NOT_AS_DESCRIBED",
+          "title": "Wrong colour delivered",
+          "description": "Ordered black, received silver.",
+          "amount_minor": 250000,
+          "currency": "KES",
+          "resolution_type": null,
+          "resolved_at": null,
+          "created_at": "2026-09-03T11:02:10Z",
+          "updated_at": "2026-09-03T11:02:10Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-000e-7000-8000-000000000000",
+      "object": "event",
+      "type": "dispute.resolved",
+      "created": 1756719175,
+      "livemode": true,
+      "sequence": 8,
+      "data": {
+        "object": {
+          "id": "0199a400-1111-7abc-8def-0123456789ab",
+          "object": "dispute",
+          "transaction_id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "transaction_reference": "ESC-8H2K4M",
+          "status": "RESOLVED",
+          "reason": "ITEM_NOT_AS_DESCRIBED",
+          "title": "Wrong colour delivered",
+          "description": "Ordered black, received silver.",
+          "amount_minor": 250000,
+          "currency": "KES",
+          "resolution_type": "REFUND_BUYER",
+          "resolved_at": "2026-09-04T09:00:00Z",
+          "created_at": "2026-09-03T11:02:10Z",
+          "updated_at": "2026-09-04T09:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "evt_0199a3f3-0063-7000-8000-000000000000",
+      "object": "event",
+      "type": "transaction.funded",
+      "created": 1756719999,
+      "livemode": false,
+      "sequence": 4,
+      "data": {
+        "object": {
+          "id": "0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80",
+          "object": "transaction",
+          "partner_reference": "order_10245",
+          "reference": "ESC-8H2K4M",
+          "status": "funded",
+          "amount_minor": 250000,
+          "fee_minor": 7500,
+          "payable_minor": 257500,
+          "currency": "KES",
+          "fee_payer": "buyer",
+          "title": "Sony WH-1000XM5",
+          "description": "Wireless noise-cancelling headphones, sealed",
+          "item_type": "PHYSICAL",
+          "category": "electronics",
+          "buyer": {
+            "full_name": "Wanjiru M.",
+            "masked_phone": "+254*******22"
+          },
+          "delivery_method": "COURIER",
+          "delivery_timeline": "3-5 days",
+          "delivery_address": "Westlands, Nairobi",
+          "inspection_period_hours": 48,
+          "inspection_started_at": null,
+          "release_after": null,
+          "funded_at": "2026-09-01T09:15:04Z",
+          "released_at": null,
+          "cancel_reason": null,
+          "livemode": false,
+          "metadata": {
+            "cart_id": "c_9912",
+            "channel": "web"
+          },
+          "created_at": "2026-09-01T09:12:41Z",
+          "updated_at": "2026-09-01T09:15:04Z"
+        }
+      }
+    }
+  ]
+}
