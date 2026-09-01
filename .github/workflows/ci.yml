@@ -60,6 +60,13 @@ jobs:
         working-directory: packages/typescript
       - run: npm run build
         working-directory: packages/typescript
+      # An example that does not compile is worse than no example: it is a
+      # confident-looking wrong answer, and it is the first thing an integrator
+      # copies.
+      # Run from the package, whose node_modules holds tsc and @types/node. The
+      # example has no install of its own, which is the point of it.
+      - run: npx tsc --noEmit -p ../../examples/typescript-node/tsconfig.json
+        working-directory: packages/typescript
 
   php:
     name: php ${{ matrix.php }}
@@ -79,6 +86,8 @@ jobs:
         with:
           working-directory: packages/php
       - run: vendor/bin/phpunit
+        working-directory: packages/php
+      - run: php -l ../../examples/php-plain/checkout.php && php -l ../../examples/php-plain/webhook.php
         working-directory: packages/php
       # One PHP version is enough for static analysis; running it four times
       # tells you the same thing four times.
