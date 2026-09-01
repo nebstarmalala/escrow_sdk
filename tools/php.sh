@@ -30,7 +30,12 @@ fi
 #
 # MSYS_NO_PATHCONV stops Git Bash on Windows rewriting the container path into a
 # Windows one before docker ever sees it.
+#
+# --add-host maps host.docker.internal on Linux, where Docker Desktop's
+# automatic mapping does not exist. The end-to-end harness needs it: inside the
+# container, "localhost" is the container.
 MSYS_NO_PATHCONV=1 exec docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
   -v "$(cd "$root" && pwd -W 2>/dev/null || pwd):/repo" \
   -w /repo/packages/php \
   php:8.1-cli php "$@"
