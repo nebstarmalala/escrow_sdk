@@ -1,5 +1,9 @@
 import { HttpClient, type ApiResponse, type RequestSpec } from './http.js';
+import { Disputes } from './resources/disputes.js';
+import { Transactions } from './resources/transactions.js';
+import { WebhookDeliveries, WebhookEndpoints } from './resources/webhooks.js';
 import type { Me } from './types/index.js';
+import { webhooks } from './webhooks.js';
 
 export const DEFAULT_BASE_URL = 'https://api.escrow.co.ke';
 
@@ -45,6 +49,18 @@ export class Escrow {
 
   readonly baseUrl: string;
 
+  readonly transactions: Transactions;
+  readonly disputes: Disputes;
+  readonly webhookEndpoints: WebhookEndpoints;
+  readonly webhookDeliveries: WebhookDeliveries;
+
+  /**
+   * Signature verification. Stateless, and reachable without a client as
+   * `import { verify } from '@aminitrust/escrow-sdk'` — a webhook receiver
+   * often has the signing secret and no API key at all.
+   */
+  readonly webhooks = webhooks;
+
   private readonly http: HttpClient;
 
   constructor(options: EscrowOptions) {
@@ -82,6 +98,11 @@ export class Escrow {
       maxRetries: options.maxRetries ?? 2,
       userAgent: userAgent(),
     });
+
+    this.transactions = new Transactions(this.http);
+    this.disputes = new Disputes(this.http);
+    this.webhookEndpoints = new WebhookEndpoints(this.http);
+    this.webhookDeliveries = new WebhookDeliveries(this.http);
   }
 
   /** Confirms the key works, and reports its partner, scopes and quota. */

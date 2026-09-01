@@ -631,7 +631,7 @@ export interface components {
              * @default KES
              * @enum {string}
              */
-            currency: "KES";
+            currency?: "KES";
             title: string;
             description: string;
             /** @example PHYSICAL */
@@ -660,14 +660,14 @@ export interface components {
              * @description How long the shopper has to inspect before auto-release fires.
              * @default 48
              */
-            inspection_period_hours: number;
+            inspection_period_hours?: number;
             /**
              * @description Who bears the platform fee. The fee itself is computed server-side
              *     from our schedule and cannot be supplied.
              * @default BUYER
              * @enum {string}
              */
-            fee_payer: "BUYER" | "SELLER" | "SPLIT";
+            fee_payer?: "BUYER" | "SELLER" | "SPLIT";
             /** @description Omit to create the escrow without charging yet. */
             payment?: {
                 /** @enum {string} */

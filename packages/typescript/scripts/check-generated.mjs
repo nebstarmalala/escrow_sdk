@@ -27,7 +27,7 @@ const cli = resolve(here, "../node_modules/openapi-typescript/bin/cli.js");
 try {
   execFileSync(
     process.execPath,
-    [cli, spec, "-o", scratch, "--root-types"],
+    [cli, spec, "-o", scratch, "--root-types", "--default-non-nullable", "false"],
     { stdio: "inherit" },
   );
 

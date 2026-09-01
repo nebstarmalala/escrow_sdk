@@ -31,6 +31,13 @@ export type { EscrowErrorFields } from './errors.js';
 export { ListResult } from './pagination.js';
 export type { ListParams, Page } from './pagination.js';
 
+export { verify, signPayload, WebhookSignatureError } from './webhooks.js';
+export type { VerifyOptions } from './webhooks.js';
+
+export type { CreateResult, ListTransactionParams, WriteOptions } from './resources/transactions.js';
+export type { ListDisputeParams } from './resources/disputes.js';
+export type { ListDeliveryParams } from './resources/webhooks.js';
+
 export type { ApiResponse, RateLimitInfo, RequestSpec } from './http.js';
 
 export type * from './types/index.js';

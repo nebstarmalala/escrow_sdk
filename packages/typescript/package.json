@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate": "openapi-typescript ../../shared/partner-openapi.yaml -o src/types/generated.ts --root-types",
+    "generate": "openapi-typescript ../../shared/partner-openapi.yaml -o src/types/generated.ts --root-types --default-non-nullable false",
     "generate:check": "node scripts/check-generated.mjs",
     "spec:check": "node scripts/check-spec-hash.mjs",
     "prepublishOnly": "npm run build"
