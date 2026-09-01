@@ -1,0 +1,18 @@
+# LF everywhere, on every platform.
+#
+# Not a style preference. `shared/partner-openapi.yaml` is verified by sha256
+# against the hash recorded in shared/SPEC.md, and the fixtures in
+# shared/fixtures are hashed and signed byte-for-byte by tests in three
+# languages. If Git rewrote line endings on a Windows checkout, every one of
+# those checks would pass in CI and fail on a contributor's machine, for a
+# reason that looks nothing like line endings.
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary

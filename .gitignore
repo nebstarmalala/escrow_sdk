@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+vendor/
+.phpunit.cache/
+.phpunit.result.cache
+*.tgz
+*.log
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,1225 @@
+openapi: 3.0.3
+
+info:
+  title: Escrow Partner API
+  version: "1.0.0"
+  contact:
+    name: Escrow Partner Support
+    email: partners@escrow.co.ke
+  x-versioning: |
+    /partner/v1 is a frozen contract. Additive changes (new optional response
+    fields, new endpoints, new event types) ship without notice. Anything that
+    could break a working integration - removing or renaming a field, changing
+    a status value, tightening validation - goes to /partner/v2 instead.
+
+    Note the corollary of strict request decoding: because an unknown property
+    is rejected rather than ignored, a new REQUEST field is a breaking change
+    for any client that sends it before the server ships it. Deploy the backend
+    first, always.
+  description: |
+    Server-to-server escrow for third-party merchants.
+
+    A merchant's backend creates an escrow transaction, the shopper pays by
+    M-Pesa STK push, the platform holds the funds, and the shopper confirms
+    receipt — releasing the money to the merchant.
+
+    ## Authentication
+
+    Every request carries a secret API key as a bearer token:
+
+        Authorization: Bearer <your_live_secret_key>
+
+    Keys are shown once, at creation, and cannot be recovered afterwards.
+    A key beginning `sk_test_` operates in test mode: no real money moves, and
+    it can only see test-mode objects. `sk_live_` keys are the reverse. The
+    two are completely isolated — a test key requesting a live transaction
+    gets `404`, not `403`, because confirming the object exists would leak
+    across the boundary.
+
+    Rotate by issuing a new key, deploying it, then revoking the old one.
+    Several keys may be active at once.
+
+    ## Escrow release is the buyer's decision
+
+    There is deliberately no release endpoint. Funds move to the merchant when
+    the shopper confirms receipt through a link the platform sends them, or
+    when the inspection window expires and auto-release fires. A merchant that
+    could release its own escrow would not be running an escrow, so this is a
+    permanent property of the API, not a missing feature.
+
+    A merchant may `POST /transactions/{id}/refund` to return the buyer's
+    money voluntarily — giving money back is never a fraud vector — but it can
+    never take it.
+
+    ## Money
+
+    All amounts are integer **minor units** (cents). `250000` is KES 2,500.00.
+    KES is the only supported currency, and amounts must be a whole number of
+    shillings — a multiple of `100` — because M-Pesa cannot move fractional
+    shillings.
+
+    ## Unknown fields are rejected
+
+    Request bodies are strictly decoded: an unrecognised JSON property returns
+    `422`, it is not ignored. This catches typos that would otherwise be
+    silently dropped, but it means **the backend must be deployed before an
+    SDK that sends a new field**.
+
+    ## Test mode
+
+    An `sk_test_` key drives the whole lifecycle with no real money and no real
+    M-Pesa prompt. Test and live objects are completely separate: a test key
+    cannot see or touch a live transaction, and vice versa.
+
+    Funding in test mode is still **asynchronous**. A charge comes back
+    `prompt_sent` and settles a few seconds later, exactly as a real one does —
+    so an integration that only works against instant funding will fail here,
+    which is the point.
+
+    The last four digits of `buyer.phone` choose the outcome, letting you
+    exercise the branches your integration has to handle:
+
+    | Phone ends | What happens |
+    |---|---|
+    | `0000` | The charge fails to start. You get `201` with `payment.status: "failed"` — retry via `POST /transactions/{id}/payments`. |
+    | `9999` | The charge starts and is **never confirmed** — the shopper who sees the prompt and walks away. The transaction stays `accepted`. |
+    | anything else | The charge settles after a few seconds and the transaction becomes `funded`. |
+
+    Test-mode escrow that reaches `released` credits a sandbox wallet that
+    cannot withdraw, so nothing you do here can move real money.
+
+    ## Webhooks
+
+    Register an endpoint and we POST each event to it as JSON.
+
+    Every request carries `Escrow-Signature`:
+
+        Escrow-Signature: t=1755820800,v1=52d5dae6...
+
+    Verify it by computing `HMAC-SHA256(secret, "<t>.<raw body>")` and
+    comparing against any `v1` value. **Sign the raw body bytes**, before any
+    JSON parsing or re-serialisation. Reject anything where `t` is more than a
+    few minutes old - that timestamp is what stops a captured request being
+    replayed at you forever.
+
+    During a secret rotation two `v1` values are sent; accept the request if
+    either verifies.
+
+    Three properties to build against:
+
+    - **Delivery is at-least-once.** Deduplicate on `data.object` plus the
+      event `id`, which is stable across retries and replays.
+    - **Order is not guaranteed.** Independent per-delivery retries mean a
+      `transaction.funded` can arrive after a `transaction.shipped`. Treat
+      `data.object.status` as the truth and use `sequence` to discard a stale
+      update.
+    - **Respond 2xx quickly.** Anything else is retried with backoff over about
+      22 hours, then dead-lettered. Do your work asynchronously.
+
+    ## Idempotency
+
+    Every write accepts an `Idempotency-Key` header, and endpoints that move
+    money require one. Choose a unique value per logical request — your order
+    id works well — and send the **same** value when retrying.
+
+        Idempotency-Key: order_10245
+
+    A retry with a key that already completed returns the original response
+    verbatim, with `Idempotent-Replay: true`, and does not execute again. This
+    is what stops a network timeout from creating a second escrow and sending
+    the shopper a second M-Pesa prompt.
+
+    Three things worth knowing:
+
+    - A key is bound to the exact request that first used it. Reusing it with a
+      different body or path returns `409 IDEMPOTENCY_CONFLICT` rather than
+      replaying the wrong answer.
+    - While the first request is still running, a second with the same key gets
+      `409 CONFLICT`. Wait and retry.
+    - A request that failed with a `5xx` releases its key, so retrying really
+      does retry. A `4xx` is stored and replays, because a deterministic
+      validation failure will not become a success.
+
+    Keys are scoped to your account and retained for 24 hours.
+
+    ## Pagination
+
+    Collections are cursor-paginated. Pass the last id you saw as
+    `starting_after`; `has_more` tells you whether to continue. Ids are
+    time-sortable, so results are newest-first and stable even while new rows
+    are being created.
+
+servers:
+  - url: https://api.escrow.co.ke
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - SecretKey: []
+
+tags:
+  - name: Account
+  - name: Transactions
+  - name: Disputes
+  - name: Webhooks
+
+paths:
+  /partner/v1/me:
+    get:
+      tags: [Account]
+      summary: Identify the current API key
+      description: |
+        Confirms which partner the key belongs to and, critically, which mode
+        it is in. Check `livemode` before wiring a key into a live checkout —
+        it is the difference between a test prompt and a real M-Pesa charge.
+
+        Requires no scope: a key must always be able to discover what it is,
+        even a deliberately narrow read-only one.
+      operationId: getMe
+      responses:
+        "200":
+          description: The authenticated partner and key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions
+      description: Newest first. Scoped to this key's partner and mode.
+      operationId: listTransactions
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - name: status
+          in: query
+          description: |
+            Filter by status. An unrecognised value is rejected with `422`
+            rather than ignored — silently dropping the filter would return
+            the full collection and look like a leak.
+          schema: { $ref: "#/components/schemas/TransactionStatus" }
+      responses:
+        "200":
+          description: A page of transactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransactionList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+    post:
+      tags: [Transactions]
+      summary: Create an escrow transaction
+      description: |
+        Creates the escrow and, if `payment` is supplied, charges the shopper.
+
+        The shopper is resolved from `buyer.email` / `buyer.phone`. One of the
+        two is required, and it must be a contact they can actually receive
+        mail or SMS at — the platform sends them the link they use to confirm
+        receipt and release the funds. A fake address means the escrow can only
+        ever settle via the auto-release timer.
+
+        **Two possible outcomes, and you must handle both:**
+
+        - The contact is new to the platform, or belongs to a guest. The
+          transaction is auto-accepted on your attestation that the shopper
+          agreed at your checkout, and comes back as `accepted` (or `funded`
+          shortly after). The attestation is recorded in our audit trail.
+        - The contact belongs to an **existing escrow account**. That person
+          never agreed to anything on your site, so the transaction comes back
+          `pending_acceptance` with `payment: null` and they accept it in our
+          app. Nothing is charged until they do.
+
+        `amount_minor` must be a whole number of shillings — a multiple of
+        `100`. When `payment.method` is `mpesa`, `payment.phone` must equal
+        `buyer.phone`: the STK prompt goes to that number, and it has to be the
+        buyer's own.
+
+        If the payment provider is unreachable the escrow is still created and
+        returned with `payment.status: "failed"`. Retry with
+        `POST /transactions/{id}/payments` rather than creating a second one.
+      operationId: createTransaction
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTransactionRequest" }
+      responses:
+        "201":
+          description: The escrow, and the payment attempt if one was requested.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreateTransactionResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Retrieve a transaction
+      operationId: getTransaction
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      responses:
+        "200":
+          description: The transaction.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions/{id}/ship:
+    post:
+      tags: [Transactions]
+      summary: Mark the item shipped
+      description: |
+        Moves a `funded` transaction to `item_sent`, which starts the shopper's
+        inspection window. Only valid from `funded`.
+      operationId: shipTransaction
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: The updated transaction.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions/{id}/cancel:
+    post:
+      tags: [Transactions]
+      summary: Cancel a transaction
+      description: |
+        Only valid **before** the escrow is funded. Once money is held, use
+        the refund endpoint instead — cancelling would leave funds with no
+        destination.
+      operationId: cancelTransaction
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: The cancelled transaction.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions/{id}/payments:
+    post:
+      tags: [Transactions]
+      summary: Charge the shopper
+      description: |
+        Starts (or retries) the deposit for an `accepted` transaction. Use this
+        when the create call returned `payment.status: "failed"`, or when you
+        created the escrow without a `payment` block.
+
+        The charge always goes to the buyer bound to the transaction; you
+        cannot redirect it to another party.
+      operationId: createPayment
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentRequest" }
+      responses:
+        "200":
+          description: The payment attempt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/transactions/{id}/refund:
+    post:
+      tags: [Transactions]
+      summary: Refund the shopper in full
+      description: |
+        Returns the escrowed principal to the shopper. Valid while the
+        transaction is `funded`, `item_sent`, or `inspection` — that is, after
+        the money is held and before it has settled either way.
+
+        This is the counterpart to there being no release endpoint: you can
+        always give money back, never take it.
+
+        Two things to know:
+
+        - The **funding fee is not returned**. It pays for escrow already
+          rendered, and the same rule applies when a dispute is resolved as a
+          full refund.
+        - The money lands in the shopper's escrow wallet, not back on their
+          M-Pesa. A shopper who checked out as a guest claims an account to
+          withdraw it.
+
+        A transaction already under dispute cannot be refunded this way —
+        that is the mediator's decision to make. A second refund returns
+        `409`, since the transaction is no longer in a refundable state.
+      operationId: refundTransaction
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefundRequest" }
+      responses:
+        "200":
+          description: The refunded transaction.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transaction" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/disputes:
+    get:
+      tags: [Disputes]
+      summary: List disputes
+      description: |
+        Read-only. A merchant cannot open a dispute on a shopper's behalf —
+        that would let it manufacture a case against its own counterparty.
+      operationId: listDisputes
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of disputes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DisputeList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/disputes/{id}:
+    get:
+      tags: [Disputes]
+      summary: Retrieve a dispute
+      operationId: getDispute
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      responses:
+        "200":
+          description: The dispute.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dispute" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_endpoints:
+    post:
+      tags: [Webhooks]
+      summary: Register a webhook endpoint
+      description: |
+        The response contains `signing_secret` - **the only time it is ever
+        shown**. Store it; you need it to verify every delivery.
+
+        The URL must be `https` and must resolve to a public address. Loopback,
+        private ranges and cloud metadata are refused, both at registration and
+        again at connection time.
+
+        Endpoints belong to the mode of the key that created them: one
+        registered with a test key never receives live events.
+      operationId: createWebhookEndpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateWebhookEndpointRequest" }
+      responses:
+        "201":
+          description: The endpoint, including its signing secret.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpointWithSecret" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    get:
+      tags: [Webhooks]
+      summary: List webhook endpoints
+      operationId: listWebhookEndpoints
+      responses:
+        "200":
+          description: Your endpoints for this mode.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpointList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_endpoints/{id}:
+    get:
+      tags: [Webhooks]
+      summary: Retrieve a webhook endpoint
+      operationId: getWebhookEndpoint
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpoint" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    patch:
+      tags: [Webhooks]
+      summary: Update a webhook endpoint
+      operationId: updateWebhookEndpoint
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateWebhookEndpointRequest" }
+      responses:
+        "200":
+          description: The updated endpoint.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpoint" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      tags: [Webhooks]
+      summary: Disable a webhook endpoint
+      description: |
+        Disables rather than deletes. Delivery history stays queryable and the
+        signing secret survives, so re-enabling later does not require you to
+        redeploy.
+      operationId: disableWebhookEndpoint
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: The disabled endpoint.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpoint" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_endpoints/{id}/rotate_secret:
+    post:
+      tags: [Webhooks]
+      summary: Rotate the signing secret
+      description: |
+        Issues a new secret and returns it once. The **previous secret keeps
+        working for 24 hours**, during which every delivery carries two `v1`
+        signatures - so you can deploy the new secret without dropping events.
+        Accept a request if either signature verifies.
+      operationId: rotateWebhookSecret
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: The endpoint with its new secret.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookEndpointWithSecret" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_deliveries:
+    get:
+      tags: [Webhooks]
+      summary: List webhook deliveries
+      description: Every attempt we have made to reach your endpoints.
+      operationId: listWebhookDeliveries
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartingAfter"
+        - name: endpoint_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, DELIVERED, FAILED] }
+      responses:
+        "200":
+          description: A page of deliveries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookDeliveryList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_deliveries/{id}:
+    get:
+      tags: [Webhooks]
+      summary: Retrieve a webhook delivery
+      operationId: getWebhookDelivery
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: The delivery.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookDelivery" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /partner/v1/webhook_deliveries/{id}/retry:
+    post:
+      tags: [Webhooks]
+      summary: Retry a webhook delivery
+      description: |
+        Queues an immediate re-attempt, including for a delivery that has
+        already exhausted its retries. A delivery that already succeeded
+        returns `409`.
+      operationId: retryWebhookDelivery
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: The delivery, queued for another attempt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookDelivery" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+components:
+  securitySchemes:
+    SecretKey:
+      type: http
+      scheme: bearer
+      description: A partner secret key, `sk_live_…` or `sk_test_…`.
+
+  parameters:
+    PathID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, 1–100.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    StartingAfter:
+      name: starting_after
+      in: query
+      description: The last id from the previous page.
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: |
+        A unique value per logical request, reused on retry. Required on
+        endpoints that move money. See "Idempotency" above.
+      schema: { type: string, maxLength: 255 }
+      example: order_10245
+
+  responses:
+    Unauthorized:
+      description: |
+        Missing, malformed, unknown, expired, or wrong-mode key. All of these
+        return the same body on purpose — distinguishing them would let a
+        caller probe for valid keys.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: |
+        Either the partner account is suspended, or the key authenticated but
+        lacks the scope this route requires (`INSUFFICIENT_SCOPE`). The second
+        is fixed by issuing a key with more scopes; the first is not.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: |
+        No such object **for this key**. Also returned for an object that
+        belongs to another partner or the other mode, rather than `403`, so
+        the response cannot be used to confirm an id exists.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Invalid parameters, or an unrecognised JSON property.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: |
+        Either this `Idempotency-Key` was used for a different request
+        (`IDEMPOTENCY_CONFLICT` — do not retry, pick a new key), or a request
+        with this key is still in flight (`CONFLICT` — wait and retry), or the
+        object is not in a state that permits the operation
+        (`INVALID_STATE_TRANSITION`).
+      headers:
+        Idempotent-Replay:
+          description: Present and `true` when the body is a stored replay.
+          schema: { type: string }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: |
+        Per-key quota exceeded. `Retry-After` says how long to wait; back off
+        rather than retrying immediately.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+        RateLimit-Limit:
+          schema: { type: integer }
+        RateLimit-Remaining:
+          schema: { type: integer }
+        RateLimit-Reset:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: |
+                Stable, machine-readable. Switch on this, never on `message`,
+                which is written for humans and may be reworded.
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - INSUFFICIENT_SCOPE
+                - NOT_FOUND
+                - CONFLICT
+                - IDEMPOTENCY_CONFLICT
+                - RATE_LIMITED
+                - UNPROCESSABLE
+                - INVALID_STATE_TRANSITION
+                - INSUFFICIENT_FUNDS
+                - SERVICE_UNAVAILABLE
+                - INTERNAL
+            message: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+
+    Me:
+      type: object
+      additionalProperties: false
+      required: [object, partner_id, key_prefix, livemode, scopes, rate_limit_per_min, time]
+      properties:
+        object: { type: string, enum: [partner] }
+        partner_id: { type: string, format: uuid }
+        key_prefix:
+          type: string
+          description: Non-secret handle for this key. Safe to log.
+        livemode:
+          type: boolean
+          description: "`false` means test mode: no real money moves."
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - "transactions:read"
+              - "transactions:write"
+              - "disputes:read"
+              - "webhooks:manage"
+              - "events:read"
+        rate_limit_per_min: { type: integer }
+        time: { type: string, format: date-time }
+
+    TransactionStatus:
+      type: string
+      description: |
+        `pending_acceptance` — awaiting the shopper's acceptance.
+        `accepted` — ready to be funded.
+        `funded` — money is held in escrow.
+        `item_sent` — the merchant marked it shipped.
+        `inspection` — the shopper's inspection window is running.
+        `released` / `completed` — funds went to the merchant.
+        `refunded` / `split` — funds went back to the shopper, wholly or partly.
+        `cancelled` / `expired` — ended before funding.
+      enum:
+        - draft
+        - pending_acceptance
+        - accepted
+        - funded
+        - item_sent
+        - inspection
+        - released
+        - completed
+        - disputed
+        - refunded
+        - split
+        - cancelled
+        - expired
+
+    Buyer:
+      type: object
+      additionalProperties: false
+      description: |
+        Contacts are masked. The merchant supplied them, so this is not
+        secrecy from them — it limits the blast radius of a leaked key or a
+        shared log, which should not yield a usable customer contact list.
+      properties:
+        full_name: { type: string }
+        masked_email: { type: string, example: "s*****r@example.com" }
+        masked_phone: { type: string, example: "+254*******22" }
+
+    Transaction:
+      type: object
+      additionalProperties: false
+      required: [id, object, reference, status, amount_minor, fee_minor, payable_minor, currency, livemode, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        object: { type: string, enum: [transaction] }
+        partner_reference:
+          type: string
+          nullable: true
+          description: Your own order id, echoed back for reconciliation.
+        reference:
+          type: string
+          description: The platform's human-facing reference, shown to the shopper.
+        status: { $ref: "#/components/schemas/TransactionStatus" }
+        amount_minor:
+          type: integer
+          format: int64
+          description: The escrowed principal, excluding fees.
+        fee_minor: { type: integer, format: int64 }
+        payable_minor:
+          type: integer
+          format: int64
+          description: What the buyer is actually charged, depending on `fee_payer`.
+        currency: { type: string, enum: [KES] }
+        fee_payer: { type: string, enum: [buyer, seller, split] }
+        title: { type: string }
+        description: { type: string }
+        item_type: { type: string }
+        category: { type: string }
+        buyer: { $ref: "#/components/schemas/Buyer" }
+        delivery_method: { type: string }
+        delivery_timeline: { type: string }
+        delivery_address: { type: string, nullable: true }
+        inspection_period_hours: { type: number }
+        inspection_started_at: { type: string, format: date-time, nullable: true }
+        release_after:
+          type: string
+          format: date-time
+          nullable: true
+          description: When auto-release fires if the shopper does nothing.
+        funded_at: { type: string, format: date-time, nullable: true }
+        released_at: { type: string, format: date-time, nullable: true }
+        cancel_reason: { type: string, nullable: true }
+        livemode: { type: boolean }
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateWebhookEndpointRequest:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2000
+          description: Must be https and resolve to a public address.
+          example: https://hooks.example.com/escrow
+        description: { type: string, maxLength: 500 }
+        event_types:
+          type: array
+          description: Which events to receive. Omit or leave empty for all of them.
+          items: { $ref: "#/components/schemas/WebhookEventType" }
+
+    UpdateWebhookEndpointRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        url: { type: string, format: uri, maxLength: 2000 }
+        description: { type: string, maxLength: 500 }
+        event_types:
+          type: array
+          items: { $ref: "#/components/schemas/WebhookEventType" }
+
+    WebhookEventType:
+      type: string
+      enum:
+        - transaction.created
+        - transaction.accepted
+        - transaction.funded
+        - transaction.shipped
+        - transaction.inspection_started
+        - transaction.released
+        - transaction.completed
+        - transaction.refunded
+        - transaction.cancelled
+        - transaction.expired
+        - dispute.opened
+        - dispute.resolved
+        - payment.succeeded
+        - payment.failed
+
+    WebhookEndpoint:
+      type: object
+      additionalProperties: false
+      required: [id, object, url, status, livemode, event_types, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        object: { type: string, enum: [webhook_endpoint] }
+        url: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+        livemode: { type: boolean }
+        event_types:
+          type: array
+          description: Empty means every event type.
+          items: { $ref: "#/components/schemas/WebhookEventType" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        disabled_at: { type: string, format: date-time, nullable: true }
+
+    WebhookEndpointWithSecret:
+      allOf:
+        - $ref: "#/components/schemas/WebhookEndpoint"
+        - type: object
+          required: [signing_secret]
+          properties:
+            signing_secret:
+              type: string
+              description: Shown once only. Store it now; it cannot be retrieved later.
+              example: whsec_9pQ2vXm4KzB7dLwR8sTfNhJ3cYgE1oUaVi5MnPqZxKt
+            previous_secret_expires_at:
+              type: string
+              format: date-time
+              description: Set after a rotation - until then the old secret also verifies.
+
+    WebhookEvent:
+      type: object
+      additionalProperties: false
+      description: |
+        The body POSTed to your webhook endpoint. Not returned by any endpoint
+        here - it is documented so SDKs and integrators have the exact shape to
+        parse and verify.
+      required: [id, object, type, created, livemode, data]
+      properties:
+        id:
+          type: string
+          description: |
+            Stable across retries and replays. Deduplicate on this.
+          example: evt_0199a3f2-6c1e-7c8e-9f2a-3b4c5d6e7f80
+        object: { type: string, enum: [event] }
+        type: { $ref: "#/components/schemas/WebhookEventType" }
+        created:
+          type: integer
+          format: int64
+          description: |
+            Unix seconds. Matches the `t` in `Escrow-Signature`, so the two can
+            be reconciled.
+          example: 1755820800
+        livemode: { type: boolean }
+        sequence:
+          type: integer
+          format: int64
+          description: |
+            Monotonic per transaction. Delivery order is **not** guaranteed, so
+            use this to discard a stale update rather than assuming arrival
+            order reflects what happened.
+        data:
+          type: object
+          additionalProperties: false
+          required: [object]
+          properties:
+            object:
+              description: |
+                A Transaction for `transaction.*` and `payment.*` events, a
+                Dispute for `dispute.*` events. Identical to what the
+                corresponding REST endpoint returns.
+              oneOf:
+                - $ref: "#/components/schemas/Transaction"
+                - $ref: "#/components/schemas/Dispute"
+
+    WebhookEndpointList:
+      type: object
+      additionalProperties: false
+      required: [object, data]
+      properties:
+        object: { type: string, enum: [list] }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/WebhookEndpoint" }
+
+    WebhookDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, object, endpoint_id, event_id, event_type, status, attempt_count, livemode, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        object: { type: string, enum: [webhook_delivery] }
+        endpoint_id: { type: string, format: uuid }
+        event_id:
+          type: string
+          format: uuid
+          description: Stable across retries and replays - use it to deduplicate.
+        event_type: { $ref: "#/components/schemas/WebhookEventType" }
+        status: { type: string, enum: [PENDING, DELIVERED, FAILED] }
+        attempt_count: { type: integer }
+        next_attempt_at: { type: string, format: date-time, nullable: true }
+        last_status_code: { type: integer, nullable: true }
+        last_error: { type: string, nullable: true }
+        livemode: { type: boolean }
+        payload:
+          type: object
+          additionalProperties: true
+          description: The exact body that was signed and sent.
+        created_at: { type: string, format: date-time }
+        delivered_at: { type: string, format: date-time, nullable: true }
+
+    WebhookDeliveryList:
+      allOf:
+        - $ref: "#/components/schemas/ListEnvelope"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/WebhookDelivery" }
+
+    CreateTransactionRequest:
+      type: object
+      additionalProperties: false
+      required: [amount_minor, title, description, item_type, category, buyer, delivery_method, delivery_timeline]
+      properties:
+        partner_reference:
+          type: string
+          maxLength: 255
+          description: |
+            Your own order id. Unique per account, and a second create with the
+            same value returns `409` — a domain-level safety net underneath
+            `Idempotency-Key`.
+          example: order_10245
+        amount_minor:
+          type: integer
+          format: int64
+          description: The escrowed principal, in cents. Must be a multiple of 100.
+          example: 250000
+        currency: { type: string, enum: [KES], default: KES }
+        title: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        item_type: { type: string, example: PHYSICAL }
+        category: { type: string, example: electronics }
+        buyer:
+          type: object
+          additionalProperties: false
+          description: |
+            The shopper. Supply at least one of `email` or `phone`, and make it
+            a contact they can actually receive — it is how they get the link
+            to confirm receipt and release your funds.
+          properties:
+            email: { type: string, format: email }
+            phone: { type: string, description: "E.164, e.g. +254700111222" }
+            full_name: { type: string, maxLength: 200 }
+        delivery_method: { type: string, example: COURIER }
+        delivery_timeline: { type: string, example: "3-5 days" }
+        delivery_address: { type: string, nullable: true }
+        agreed_terms: { type: string, maxLength: 5000 }
+        inspection_period_hours:
+          type: number
+          default: 48
+          description: |
+            How long the shopper has to inspect before auto-release fires.
+        fee_payer:
+          type: string
+          enum: [BUYER, SELLER, SPLIT]
+          default: BUYER
+          description: |
+            Who bears the platform fee. The fee itself is computed server-side
+            from our schedule and cannot be supplied.
+        payment:
+          type: object
+          additionalProperties: false
+          description: Omit to create the escrow without charging yet.
+          required: [method]
+          properties:
+            method: { type: string, enum: [mpesa, card, bank] }
+            phone:
+              type: string
+              description: |
+                Required for `mpesa`, and must equal `buyer.phone` — the STK
+                prompt goes to this number.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON echoed back on reads and webhooks.
+
+    PaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [method]
+      properties:
+        method: { type: string, enum: [mpesa, card, bank] }
+        phone: { type: string, description: Required for `mpesa`. }
+
+    RefundRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Recorded in the audit trail. Useful when reconciling later.
+          example: out of stock
+
+    Payment:
+      type: object
+      additionalProperties: false
+      properties:
+        object: { type: string, enum: [payment] }
+        status:
+          type: string
+          description: |
+            `failed` here means the charge could not be *started*. The escrow
+            still exists — retry rather than creating a new transaction.
+        reference: { type: string }
+        amount_minor: { type: integer, format: int64 }
+        method: { type: string }
+        checkout_url:
+          type: string
+          description: Present for `card` / `bank`; redirect the shopper here.
+        failure_reason: { type: string, nullable: true }
+
+    CreateTransactionResponse:
+      type: object
+      additionalProperties: false
+      required: [transaction]
+      properties:
+        transaction: { $ref: "#/components/schemas/Transaction" }
+        payment:
+          allOf:
+            - $ref: "#/components/schemas/Payment"
+          nullable: true
+          description: |
+            `null` when no payment was requested, or when the buyer is an
+            existing escrow account who must accept in-app first.
+
+    Dispute:
+      type: object
+      additionalProperties: false
+      required: [id, object, transaction_id, status, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        object: { type: string, enum: [dispute] }
+        transaction_id: { type: string, format: uuid }
+        transaction_reference: { type: string }
+        status: { type: string }
+        reason: { type: string }
+        title: { type: string }
+        description: { type: string }
+        amount_minor: { type: integer, format: int64 }
+        currency: { type: string }
+        resolution_type: { type: string, nullable: true }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [object, data, has_more]
+      properties:
+        object: { type: string, enum: [list] }
+        has_more:
+          type: boolean
+          description: Whether another page exists after this one.
+        next_cursor:
+          type: string
+          nullable: true
+          description: Pass as `starting_after` to fetch the next page.
+
+    TransactionList:
+      allOf:
+        - $ref: "#/components/schemas/ListEnvelope"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Transaction" }
+
+    DisputeList:
+      allOf:
+        - $ref: "#/components/schemas/ListEnvelope"
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Dispute" }

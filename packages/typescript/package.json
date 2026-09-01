@@ -1,0 +1,51 @@
+{
+  "name": "@aminitrust/escrow-sdk",
+  "version": "1.0.0",
+  "description": "Server-side client for the Escrow Partner API - hold funds in escrow from your own checkout.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate": "openapi-typescript ../../shared/partner-openapi.yaml -o src/types/generated.ts --root-types",
+    "generate:check": "node scripts/check-generated.mjs",
+    "spec:check": "node scripts/check-spec-hash.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "escrow",
+    "payments",
+    "mpesa",
+    "kenya",
+    "marketplace",
+    "webhooks"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "openapi-typescript": "^7.4.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
