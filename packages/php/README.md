@@ -10,6 +10,9 @@ client your application already has.
 composer require aminitrust/escrow-sdk
 ```
 
+For the end-to-end sandbox setup and a website checkout walkthrough, see the
+[testing and integration guide](../../docs/testing-and-integration.md).
+
 If your project has no PSR-18 client yet, any will do:
 
 ```bash

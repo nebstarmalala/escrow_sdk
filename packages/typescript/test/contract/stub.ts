@@ -15,6 +15,8 @@ export interface StubReply {
   headers?: Record<string, string>;
   /** Milliseconds to wait before replying, for timeout tests. */
   delayMs?: number;
+  /** Milliseconds to wait after headers, for response-body timeout tests. */
+  bodyDelayMs?: number;
 }
 
 /**
@@ -94,6 +96,11 @@ export class StubServer {
       'Content-Type': 'application/json',
       ...(reply.headers ?? {}),
     });
+
+    if (reply.bodyDelayMs !== undefined) {
+      await new Promise((resolve) => setTimeout(resolve, reply.bodyDelayMs));
+    }
+
     res.end(payload);
   }
 }

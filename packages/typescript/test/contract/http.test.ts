@@ -132,6 +132,30 @@ describe('retries', () => {
     expect((err as ConnectionError).status).toBe(0);
     expect((err as ConnectionError).message).toContain('timed out');
   });
+
+  it('does not send a request when the caller signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const err = await client({ maxRetries: 0 })
+      .request({ method: 'GET', path: '/partner/v1/me', signal: controller.signal })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ConnectionError);
+    expect((err as ConnectionError).message).toContain('cancelled');
+    expect(stub.requests).toHaveLength(0);
+  });
+
+  it('keeps the timeout active while reading the response body', async () => {
+    stub.then({ status: 200, body: ME, bodyDelayMs: 300 });
+
+    const err = await client({ timeoutMs: 50, maxRetries: 0 })
+      .me()
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ConnectionError);
+    expect((err as ConnectionError).message).toContain('timed out');
+  });
 });
 
 describe('idempotency', () => {

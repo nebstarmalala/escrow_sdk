@@ -67,6 +67,10 @@ export class HttpClient {
     let lastError: EscrowError | undefined;
 
     for (let attempt = 0; attempt <= this.opts.maxRetries; attempt++) {
+      if (isAborted(spec.signal)) {
+        throw new ConnectionError('the request was cancelled');
+      }
+
       if (attempt > 0) {
         await sleep(backoffMs(attempt, lastError));
       }
@@ -77,7 +81,7 @@ export class HttpClient {
         const escrowError = err as EscrowError;
         // An AbortError from the caller's own signal is a cancellation, not a
         // failure to retry around.
-        if (spec.signal?.aborted === true) throw escrowError;
+        if (isAborted(spec.signal)) throw escrowError;
         if (!isRetryable(escrowError)) throw escrowError;
         lastError = escrowError;
       }
@@ -126,6 +130,10 @@ export class HttpClient {
     init: RequestInit,
     callerSignal: AbortSignal | undefined,
   ): Promise<ApiResponse<T>> {
+    if (isAborted(callerSignal)) {
+      throw new ConnectionError('the request was cancelled');
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
@@ -137,10 +145,15 @@ export class HttpClient {
     callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
 
     let response: Response;
+    let raw: string;
     try {
       response = await fetch(url, { ...init, signal: controller.signal });
+      // Keep the timeout active until the complete response has arrived. Fetch
+      // resolves as soon as headers arrive, but a stalled body would otherwise
+      // leave a checkout waiting forever with no timer left to abort it.
+      raw = await response.text();
     } catch (err) {
-      if (callerSignal?.aborted === true) {
+      if (isAborted(callerSignal)) {
         throw new ConnectionError('the request was cancelled', err);
       }
       throw new ConnectionError(
@@ -157,8 +170,6 @@ export class HttpClient {
     // Read as text, always. A gateway answering instead of the API sends HTML,
     // and `response.json()` on that throws a SyntaxError that tells the
     // merchant nothing about what actually happened.
-    const raw = await response.text();
-
     if (!response.ok) {
       throw errorFromResponse(response.status, raw, response.headers);
     }
@@ -207,6 +218,10 @@ export function backoffMs(attempt: number, lastError: EscrowError | undefined): 
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
 }
 
 /**

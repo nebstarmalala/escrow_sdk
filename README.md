@@ -80,6 +80,9 @@ if (!escrow.livemode && process.env.NODE_ENV === 'production') throw new Error('
 The last four digits of the buyer's phone select a sandbox outcome: `…0000` the
 charge never starts, `…9999` the shopper sees the prompt and walks away.
 
+For a step-by-step sandbox checkout, including the TypeScript and PHP end-to-end
+harness, see [Testing and integrating a payment flow](docs/testing-and-integration.md).
+
 ## Webhooks
 
 Verify every delivery. Both packages ship a verifier that handles the timestamp
@@ -102,8 +105,14 @@ out of your framework.
 shared/       the frozen spec, its provenance, and the cross-language fixtures
 packages/     the two SDKs
 examples/     runnable integrations
+docs/         sandbox testing and payment-flow integration guide
 tools/        local dev wrappers
 ```
+
+The machine-readable partner API documentation is [`shared/partner-openapi.yaml`](shared/partner-openapi.yaml).
+It describes the HTTP API both SDKs call; the backend repository keeps a
+matching copy. The backend's current Swagger UI renders its broader platform
+API spec, so point a partner API explorer at this existing file if one is needed.
 
 `shared/fixtures/` holds signature vectors and sample payloads that **all three**
 implementations run — including the Go backend. Two clients agreeing with each

@@ -13,8 +13,18 @@ before the address guard ever ran.
 
 ## Running it
 
+For the full package-test and website-checkout walkthrough, see
+[`docs/testing-and-integration.md`](../docs/testing-and-integration.md).
+
 You need the backend checked out beside this repo, and Docker for its Postgres,
 Redis and NATS.
+
+Check that the backend's default host ports (5432, 6379, 4222, 8080) are free
+before starting it. If not, use separate host port mappings for the escrow
+stack and pass the API mapping to `--base`. Never use another project's
+database for this test. The seed script writes partner, seller and API-key rows
+to the backend's `escrow` database. The harness removes its webhook endpoint
+but intentionally keeps created test transactions.
 
 ```bash
 # 1. dependencies only
@@ -27,6 +37,11 @@ go run ./cmd/escrow --mode=migrate
 go run ./cmd/escrow --mode=api &
 go run ./cmd/escrow --mode=worker &
 ```
+
+The shell commands above are for Linux/macOS. On Windows, use WSL or Git Bash
+with Docker Desktop and Go available in that environment. See the testing guide
+for the full TypeScript-only option and checkout examples that exercise the
+asynchronous funding path.
 
 > The API is run natively rather than through `docker compose up api`, because
 > the backend's Dockerfile currently pins a Go base image older than its own

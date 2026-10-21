@@ -9,6 +9,9 @@ Node 18+. Zero runtime dependencies. Ships ESM and CommonJS.
 npm install @aminitrust/escrow-sdk
 ```
 
+To run the clients against the test-mode backend and walk through a website
+checkout, see the [testing and integration guide](../../docs/testing-and-integration.md).
+
 > **Server-side only.** A secret key can move your money. There is no origin
 > check that makes shipping one to a browser safe.
 
