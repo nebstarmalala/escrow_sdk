@@ -105,10 +105,14 @@ async function main(): Promise<void> {
 
     // Retry the PAYMENT, not the transaction. Creating a second transaction
     // here is the mistake this endpoint exists to prevent.
-    await escrow.transactions.pay(created.transaction.id, {
+    const retry = await escrow.transactions.pay(created.transaction.id, {
       method: 'mpesa',
       phone: values.phone,
     });
+    if (retry.status === 'failed') {
+      console.log(`retry did not start (${retry.failure_reason ?? 'payment declined'}); use another payment method or number.`);
+      return;
+    }
   }
 
   // 4. Wait for funding.

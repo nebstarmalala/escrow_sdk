@@ -23,6 +23,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 const live = process.argv.includes('--live');
 const prefix = live ? 'sk_live_' : 'sk_test_';
+const composeProject = process.env.BACKEND_COMPOSE_PROJECT;
 
 // UUIDv7 is what the backend mints, and the partner API's cursor pagination
 // relies on that ordering. v4 would still work here, but seeded rows that sort
@@ -79,7 +80,21 @@ COMMIT;
 
 execFileSync(
   'docker',
-  ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'escrow', '-d', 'escrow', '-v', 'ON_ERROR_STOP=1', '-q'],
+  [
+    'compose',
+    ...(composeProject ? ['--project-name', composeProject] : []),
+    'exec',
+    '-T',
+    'postgres',
+    'psql',
+    '-U',
+    'escrow',
+    '-d',
+    'escrow',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-q',
+  ],
   { input: sql, cwd: process.env.BACKEND_DIR ?? '../escrow-backend', stdio: ['pipe', 'inherit', 'inherit'] },
 );
 

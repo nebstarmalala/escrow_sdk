@@ -9,7 +9,12 @@ for both packages.
 | Source | `escrow-backend:api/partner-openapi.yaml` |
 | Backend commit | `74db6d2279df642bc839bf6d5d89654a8b18baec` (2026-09-01) |
 | API version | `1.0.0` |
-| sha256 | `a2f288510e5859b461da9e1aae591147f5fd58ec249c59426d9d74a8a6264a7a` |
+| sha256 | `6e2047381396477222b41300c91e818aeb925c7efc23d7c6ee1842ae80e0b4f1` |
+
+The source spec includes an annotation-only correction: the nullable
+`CreateTransactionResponse.payment` schema now declares `type: object`, as
+required by OpenAPI 3.0 tooling. This does not change the HTTP request or
+response contract.
 
 ## Why a copy and not a submodule
 

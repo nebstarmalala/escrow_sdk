@@ -222,14 +222,25 @@ await step('refuses a webhook URL pointing at private space', async () => {
 if (!values['skip-php']) {
   console.log('\nphp SDK against the same live backend');
 
-  // tools/php.sh falls back to a container when no local PHP exists, and inside
-  // that container "localhost" is the container itself. Rewriting the host is
-  // the harness's job, not the SDK's - a merchant's base URL is whatever they
-  // configure, and the SDK has no business second-guessing it.
-  const phpBase = values.base.replace(
-    /^(https?:\/\/)(localhost|127\.0\.0\.1)(?=[:/]|$)/,
-    '$1host.docker.internal',
-  );
+  // tools/php.sh falls back to a container when no local PHP exists. Only in
+  // that case is localhost inside the PHP runtime different from the host.
+  // Keep the merchant SDK's base URL untouched when PHP runs locally.
+  let localPhp = false;
+  try {
+    execFileSync('bash', ['-lc', 'command -v php >/dev/null 2>&1'], {
+      cwd: resolve(here, '..'),
+      stdio: 'ignore',
+    });
+    localPhp = true;
+  } catch {
+    // The wrapper will use its container fallback.
+  }
+  const phpBase = localPhp
+    ? values.base
+    : values.base.replace(
+        /^(https?:\/\/)(localhost|127\.0\.0\.1)(?=[:/]|$)/,
+        '$1host.docker.internal',
+      );
   if (phpBase !== values.base) {
     console.log(`  (php runs in a container; using ${phpBase})`);
   }
@@ -237,7 +248,7 @@ if (!values['skip-php']) {
   try {
     const out = execFileSync(
       'bash',
-      [resolve(here, '../tools/php.sh').replace(/\\/g, '/'), '../../e2e/php-lifecycle.php', values.key, phpBase],
+      ['tools/php.sh', '../../e2e/php-lifecycle.php', values.key, phpBase],
       { cwd: resolve(here, '..'), encoding: 'utf8' },
     );
     process.stdout.write(out);

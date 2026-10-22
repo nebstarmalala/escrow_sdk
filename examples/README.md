@@ -9,20 +9,22 @@ implementation is wrong.
 
 ## What you need
 
-A partner account and a `sk_test_` key. There is no self-serve signup yet; ask
-for both.
+A partner account and a `sk_test_` key. The backend supports developer
+applications and key management; until the portal UI is available, contact
+AminiTrust staff for admin-assisted onboarding and a sandbox key. Production
+keys require separate approval and are not used by these examples.
 
 ## TypeScript
 
 ```bash
 cd packages/typescript && npm install && npm run build && cd ../..
-npx tsx examples/typescript-node/checkout.ts --key sk_test_xxx --base http://localhost:8080
+npx tsx --tsconfig examples/typescript-node/tsconfig.json examples/typescript-node/checkout.ts --key sk_test_xxx --base http://localhost:8080
 ```
 
 With a webhook receiver as well:
 
 ```bash
-npx tsx examples/typescript-node/checkout.ts --key sk_test_xxx --secret whsec_xxx --port 9095
+npx tsx --tsconfig examples/typescript-node/tsconfig.json examples/typescript-node/checkout.ts --key sk_test_xxx --secret whsec_xxx --port 9095
 ```
 
 Built on `node:http` rather than Express, so it runs with no install beyond the
@@ -68,11 +70,11 @@ The last four digits of the buyer's phone pick the sandbox outcome:
 
 ```bash
 # the charge never starts
-npx tsx examples/typescript-node/checkout.ts --key sk_test_xxx --phone +254700110000
+npx tsx --tsconfig examples/typescript-node/tsconfig.json examples/typescript-node/checkout.ts --key sk_test_xxx --phone +254700110000
 
 # the shopper sees the prompt and walks away - the commonest real failure,
 # and the one integrations forget
-npx tsx examples/typescript-node/checkout.ts --key sk_test_xxx --phone +254700119999
+npx tsx --tsconfig examples/typescript-node/tsconfig.json examples/typescript-node/checkout.ts --key sk_test_xxx --phone +254700119999
 ```
 
 ## Two shortcuts a real integration should not copy

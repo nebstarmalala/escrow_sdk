@@ -31,11 +31,9 @@ but intentionally keeps created test transactions.
 cd ../escrow-backend
 docker compose up -d postgres redis nats
 
-# 2. migrate and run the API natively
-set -a && . ./.env && set +a
-go run ./cmd/escrow --mode=migrate
-go run ./cmd/escrow --mode=api &
-go run ./cmd/escrow --mode=worker &
+# 2. build and run the isolated API + worker containers (the migrate service
+#    is run automatically as a dependency)
+docker compose up -d api worker
 ```
 
 The shell commands above are for Linux/macOS. On Windows, use WSL or Git Bash
@@ -43,15 +41,15 @@ with Docker Desktop and Go available in that environment. See the testing guide
 for the full TypeScript-only option and checkout examples that exercise the
 asynchronous funding path.
 
-> The API is run natively rather than through `docker compose up api`, because
-> the backend's Dockerfile currently pins a Go base image older than its own
-> `go.mod` requires and the image build fails. Running it with the local
-> toolchain sidesteps that without changing the backend.
+> The backend Dockerfile pins the Go patch release required by its `go.mod`,
+> so the container build uses the same toolchain contract as local development.
 
 ```bash
 # 3. provision a partner and a test key
 cd ../escrow-sdk
 BACKEND_DIR=../escrow-backend node e2e/seed-partner.mjs
+
+# When using a named Compose project, also set BACKEND_COMPOSE_PROJECT.
 
 # 4. drive both SDKs
 cd packages/typescript && npm run build && cd ../..

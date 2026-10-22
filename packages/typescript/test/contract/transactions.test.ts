@@ -32,6 +32,13 @@ const TXN = {
   updated_at: '2026-09-01T09:15:04Z',
 };
 
+const PAYMENT = {
+  object: 'payment',
+  status: 'failed',
+  method: 'mpesa',
+  failure_reason: 'payment could not be started',
+};
+
 const PARAMS = {
   partner_reference: 'order_10245',
   amount_minor: 250000,
@@ -117,12 +124,6 @@ describe('transaction actions', () => {
     ['ship', (id: string) => escrow.transactions.ship(id), '/ship', undefined],
     ['cancel', (id: string) => escrow.transactions.cancel(id), '/cancel', undefined],
     [
-      'pay',
-      (id: string) => escrow.transactions.pay(id, { method: 'mpesa', phone: '+254700111222' }),
-      '/payments',
-      { method: 'mpesa', phone: '+254700111222' },
-    ],
-    [
       'refund',
       (id: string) => escrow.transactions.refund(id, { reason: 'out of stock' }),
       '/refund',
@@ -143,6 +144,21 @@ describe('transaction actions', () => {
     } else {
       expect(JSON.parse(req.body)).toEqual(body);
     }
+  });
+
+  it('returns a payment attempt, not a transaction, when retrying payment', async () => {
+    stub.script({ status: 200, body: PAYMENT });
+
+    const result = await escrow.transactions.pay(TXN.id, {
+      method: 'mpesa',
+      phone: '+254700110000',
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.failure_reason).toBe('payment could not be started');
+    expect('id' in result).toBe(false);
+    expect(stub.requests[0]!.url).toBe(`/partner/v1/transactions/${TXN.id}/payments`);
+    expect(stub.requests[0]!.headers['idempotency-key']).toBeDefined();
   });
 
   it('sends an empty object when refunding with no reason', async () => {

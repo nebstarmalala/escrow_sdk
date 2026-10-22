@@ -144,11 +144,20 @@ final class Transactions
      *
      * @param PaymentRequest $params
      *
-     * @return Transaction
+     * @return Payment
      */
     public function pay(string $id, array $params, ?string $idempotencyKey = null): array
     {
-        return $this->action($id, 'payments', $params, $idempotencyKey);
+        /** @var Payment $data */
+        $data = $this->http->request(
+            'POST',
+            $this->path($id) . '/payments',
+            [],
+            $params,
+            $idempotencyKey ?? HttpClient::randomIdempotencyKey(),
+        )['data'];
+
+        return $data;
     }
 
     /**

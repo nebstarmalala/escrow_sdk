@@ -62,6 +62,18 @@ key once; keep it out of logs and source control:
 node e2e/seed-partner.mjs
 ```
 
+If the backend uses a named Compose project (for example, to isolate it from
+other local databases), select that exact project before seeding:
+
+```bash
+BACKEND_COMPOSE_PROJECT=codex-developerportal-test node e2e/seed-partner.mjs
+```
+
+The seeder runs `docker compose exec` only against that project's Postgres
+container. Confirm the project name with `docker compose ls` first. On
+PowerShell, set `$env:BACKEND_COMPOSE_PROJECT` to the project name for the
+command, then clear it when finished.
+
 Build TypeScript, install the PHP SDK dependencies, then run both clients
 against the API. Replace the sample key with the value just printed. Set
 `BACKEND_DIR` if your backend checkout is not `../escrow-backend`.
@@ -88,7 +100,7 @@ installed locally.
 Start the TypeScript example with a sandbox test key:
 
 ```bash
-npx tsx examples/typescript-node/checkout.ts --key sk_test_REPLACE_ME --base http://localhost:8080
+npx tsx --tsconfig examples/typescript-node/tsconfig.json examples/typescript-node/checkout.ts --key sk_test_REPLACE_ME --base http://localhost:8080
 ```
 
 Or use the PHP example:
@@ -153,10 +165,13 @@ webhook raw-body access, and error handling.
 
 The canonical HTTP contract is
 [`shared/partner-openapi.yaml`](../shared/partner-openapi.yaml). The backend
-repository keeps a matching copy at `api/partner-openapi.yaml`. Its current
-optional Swagger UI renders the broader platform API spec (`api/openapi.yaml`),
-not the partner spec. The SDK does not expose a different HTTP API, so a second
-Swagger file in this repository would duplicate the contract and risk drifting
-from the backend. If an interactive partner API explorer is wanted, point
-Swagger UI at the existing partner OpenAPI file. This guide documents SDK usage;
-the OpenAPI file remains the endpoint/schema reference.
+repository keeps a matching copy at `api/partner-openapi.yaml` and serves it at
+`GET /partner/openapi.yaml`. Start the backend with the optional `docs` Compose
+profile to run two separate local Swagger UIs: partner/SDK endpoints at
+`http://localhost:8081` and the private company API at `http://localhost:8082`.
+The partner UI defaults to the local development API; authorize it with a
+`sk_test_` key before using **Try it out**. Keep the private UI loopback-only.
+
+The SDK does not expose a different HTTP API, so this repository does not need a
+second Swagger contract. This guide documents SDK usage; the OpenAPI file
+remains the endpoint/schema reference.

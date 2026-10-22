@@ -27,7 +27,7 @@ info:
 
     Every request carries a secret API key as a bearer token:
 
-        Authorization: Bearer <your_live_secret_key>
+        Authorization: Bearer sk_test_<your_test_secret_key>
 
     Keys are shown once, at creation, and cannot be recovered afterwards.
     A key beginning `sk_test_` operates in test mode: no real money moves, and
@@ -150,10 +150,10 @@ info:
     are being created.
 
 servers:
-  - url: https://api.escrow.co.ke
-    description: Production
   - url: http://localhost:8080
     description: Local development
+  - url: https://api.escrow.co.ke
+    description: Production
 
 security:
   - SecretKey: []
@@ -1163,6 +1163,7 @@ components:
       properties:
         transaction: { $ref: "#/components/schemas/Transaction" }
         payment:
+          type: object
           allOf:
             - $ref: "#/components/schemas/Payment"
           nullable: true

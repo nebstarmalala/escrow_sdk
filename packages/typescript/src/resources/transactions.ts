@@ -4,6 +4,7 @@ import { ListResult, type ListParams } from '../pagination.js';
 import type {
   CreateTransactionParams,
   CreateTransactionResult,
+  Payment,
   PaymentParams,
   RefundParams,
   Transaction,
@@ -127,8 +128,16 @@ export class Transactions {
    * to prevent: the first escrow is still there, still accepted, and still
    * counted.
    */
-  async pay(id: string, params: PaymentParams, options: WriteOptions = {}): Promise<Transaction> {
-    return this.action(id, 'payments', params, options);
+  async pay(id: string, params: PaymentParams, options: WriteOptions = {}): Promise<Payment> {
+    const response = await this.http.request<Payment>({
+      method: 'POST',
+      path: `/partner/v1/transactions/${encodeURIComponent(id)}/payments`,
+      body: params,
+      idempotencyKey: options.idempotencyKey ?? randomIdempotencyKey(),
+      requiresIdempotencyKey: true,
+      signal: options.signal,
+    });
+    return response.data;
   }
 
   /**

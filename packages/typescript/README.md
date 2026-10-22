@@ -60,7 +60,10 @@ if (payment?.status === 'failed') {
   // The escrow exists and is accepted — the *charge* did not start.
   // Retry the payment. Creating a second transaction is the mistake this
   // endpoint exists to prevent.
-  await escrow.transactions.pay(transaction.id, { method: 'mpesa', phone });
+  const retry = await escrow.transactions.pay(transaction.id, { method: 'mpesa', phone });
+  if (retry.status === 'failed') {
+    // Try a different payment method or shopper number; the escrow still exists.
+  }
 }
 ```
 

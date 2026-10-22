@@ -44,6 +44,13 @@ final class ClientTest extends TestCase
         'updated_at' => '2026-09-01T09:15:04Z',
     ];
 
+    private const PAYMENT = [
+        'object' => 'payment',
+        'status' => 'failed',
+        'method' => 'mpesa',
+        'failure_reason' => 'payment could not be started',
+    ];
+
     private const PARAMS = [
         'partner_reference' => 'order_10245',
         'amount_minor' => 250000,
@@ -339,7 +346,6 @@ final class ClientTest extends TestCase
 
         $escrow->transactions->ship($id);
         $escrow->transactions->cancel($id);
-        $escrow->transactions->pay($id, ['method' => 'mpesa', 'phone' => '+254700111222']);
         $escrow->transactions->refund($id, ['reason' => 'out of stock']);
 
         $paths = array_map(
@@ -350,9 +356,23 @@ final class ClientTest extends TestCase
         self::assertSame([
             "POST /partner/v1/transactions/{$id}/ship",
             "POST /partner/v1/transactions/{$id}/cancel",
-            "POST /partner/v1/transactions/{$id}/payments",
             "POST /partner/v1/transactions/{$id}/refund",
         ], $paths);
+    }
+
+    public function testPayReturnsPaymentAttemptShapeAndIdempotencyKey(): void
+    {
+        $stub = (new StubClient())->always(200, self::PAYMENT);
+
+        $result = $this->client($stub)->transactions->pay(
+            self::TXN['id'],
+            ['method' => 'mpesa', 'phone' => '+254700110000'],
+        );
+
+        self::assertSame('payment', $result['object'] ?? null);
+        self::assertSame('failed', $result['status'] ?? null);
+        self::assertSame('/partner/v1/transactions/' . self::TXN['id'] . '/payments', $stub->requests[0]->getUri()->getPath());
+        self::assertNotNull($stub->requests[0]->getHeaderLine('Idempotency-Key'));
     }
 
     public function testEscapesAnIdRatherThanSplicingItIntoThePath(): void

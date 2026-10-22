@@ -64,10 +64,13 @@ if (($result['payment']['status'] ?? null) === 'failed') {
     // The escrow exists and is accepted - the *charge* did not start.
     // Retry the payment. Creating a second transaction is the mistake this
     // endpoint exists to prevent.
-    $escrow->transactions->pay($result['transaction']['id'], [
+    $retry = $escrow->transactions->pay($result['transaction']['id'], [
         'method' => 'mpesa',
         'phone' => $phone,
     ]);
+    if (($retry['status'] ?? null) === 'failed') {
+        // Try a different payment method or shopper number; the escrow still exists.
+    }
 }
 ```
 

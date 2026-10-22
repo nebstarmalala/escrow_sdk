@@ -95,7 +95,11 @@ try {
 
         // Retry the PAYMENT, not the transaction. Creating a second transaction
         // here is the mistake this endpoint exists to prevent.
-        $escrow->transactions->pay($txn['id'], ['method' => 'mpesa', 'phone' => $phone]);
+        $retry = $escrow->transactions->pay($txn['id'], ['method' => 'mpesa', 'phone' => $phone]);
+        if (($retry['status'] ?? null) === 'failed') {
+            printf("retry did not start (%s); use another payment method or number.\n", $retry['failure_reason'] ?? 'payment declined');
+            exit(0);
+        }
     }
 
     // 4. Wait for funding.
